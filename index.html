@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Compra · Jumbo + Líder</title>
+<style>
+  :root{--green:#1f7a3d;--green-d:#155c2c;--bg:#f4f6f5;--card:#fff;--ink:#1d2421;--muted:#6b7771;--line:#e3e8e5;--accent:#ffb703;--need:#fff6c8}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  header{position:sticky;top:0;z-index:10;background:var(--green);color:#fff;padding:14px 16px 12px;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+  header h1{margin:0 0 2px;font-size:18px;font-weight:700}
+  header .sub{font-size:12px;opacity:.85}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+  .controls input[type=search]{flex:1;min-width:160px;padding:9px 12px;border:none;border-radius:10px;font-size:14px}
+  .controls select{padding:9px 10px;border:none;border-radius:10px;font-size:14px}
+  .toggle{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);padding:8px 11px;border-radius:10px;font-size:13px;cursor:pointer;user-select:none}
+  main{max-width:880px;margin:0 auto;padding:14px 12px 150px}
+  .cat{margin:18px 0 8px;font-size:13px;font-weight:700;color:var(--green-d);text-transform:uppercase;letter-spacing:.5px}
+  .row{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:7px}
+  .row.on{background:#f0f9f2;border-color:var(--green)}
+  .row label.name{flex:1;font-size:14.5px;cursor:pointer;line-height:1.25}
+  .row .stars{color:var(--accent);font-size:12px;white-space:nowrap}
+  .cb{width:22px;height:22px;flex:0 0 auto;accent-color:var(--green);cursor:pointer}
+  .qty{width:84px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;font-size:13px;text-align:center}
+  .qty:disabled{background:#f4f6f5;color:#c2cbc6}
+  footer{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--line);box-shadow:0 -3px 14px rgba(0,0,0,.08);padding:12px;z-index:20}
+  .fwrap{max-width:880px;margin:0 auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .pill{background:var(--green);color:#fff;border-radius:20px;padding:6px 13px;font-size:13px;font-weight:600}
+  .btn{border:none;border-radius:10px;padding:11px 16px;font-size:14px;font-weight:700;cursor:pointer}
+  .btn.primary{background:var(--green);color:#fff}.btn.primary:hover{background:var(--green-d)}
+  .btn.ghost{background:#eef2f0;color:var(--ink)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  /* overlay propuesta */
+  #panel{position:fixed;inset:0;background:rgba(20,30,25,.55);z-index:40;display:none;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto}
+  #panel.show{display:flex}
+  .sheet{background:#fff;max-width:760px;width:100%;border-radius:16px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+  .sheet h2{margin:0 0 6px;font-size:19px;color:var(--green-d)}
+  .state-msg{font-size:14px;color:var(--muted);margin:6px 0 14px}
+  .spinner{display:inline-block;width:16px;height:16px;border:3px solid #cfe0d5;border-top-color:var(--green);border-radius:50%;animation:spin 1s linear infinite;vertical-align:-3px;margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .prop-body{font-size:14px;line-height:1.5;max-height:50vh;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:14px;background:#fafbfa}
+  .prop-body table{border-collapse:collapse;width:100%}.prop-body th,.prop-body td{border:1px solid var(--line);padding:6px 8px;font-size:13px;text-align:left}
+  .sheet-actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+  .toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%);background:#1d2421;color:#fff;padding:9px 16px;border-radius:20px;font-size:13px;opacity:0;transition:.25s;z-index:60}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <h1>🛒 Compra · Jumbo + Líder</h1>
+  <div class="sub">Marca lo que necesitas y aprieta <b>Enviar a Claude</b>. Compara precios y te propone cómo comprar.</div>
+  <div class="controls">
+    <input id="search" type="search" placeholder="Buscar producto…" autocomplete="off">
+    <select id="catFilter"><option value="">Todas las categorías</option></select>
+    <label class="toggle"><input type="checkbox" id="onlyFav"> Solo ★</label>
+    <label class="toggle"><input type="checkbox" id="onlySel"> Solo marcados</label>
+  </div>
+</header>
+
+<main id="list"></main>
+
+<footer>
+  <div class="fwrap">
+    <span class="pill"><span id="selCount">0</span> seleccionados</span>
+    <button class="btn primary" id="sendBtn">🚀 Enviar a Claude</button>
+    <button class="btn ghost" id="clearBtn">Limpiar</button>
+  </div>
+</footer>
+
+<div id="panel"><div class="sheet">
+  <h2 id="panelTitle">Procesando tu lista…</h2>
+  <div class="state-msg" id="panelMsg"></div>
+  <div class="prop-body" id="propBody" style="display:none"></div>
+  <div class="sheet-actions">
+    <button class="btn primary" id="approveBtn" style="display:none">✅ Aprobar y armar canastos</button>
+    <button class="btn ghost" id="editBtn" style="display:none">✏️ Volver a editar</button>
+    <button class="btn ghost" id="closeBtn">Cerrar</button>
+  </div>
+</div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const PRODUCTS = [
+ ["Carnes y pescados","Pechuga de Pollo Entera kg",1],["Carnes y pescados","Merluza Austral Filete Fresca (granel)",1],["Carnes y pescados","Jurel San José en lata (260/300 g)",1],["Carnes y pescados","Vacuno al vacío por kg — Lomo Liso",0],["Carnes y pescados","Vacuno al vacío por kg — Filete",0],["Carnes y pescados","Vacuno al vacío por kg — Posta Negra",0],["Carnes y pescados","Vacuno al vacío por kg — Ganso",0],["Carnes y pescados","Vacuno al vacío por kg — Plateada",0],["Carnes y pescados","Jamón Artesanal Granel (Receta del Abuelo / San Jorge)",0],["Carnes y pescados","Jamón Pierna Acaramelado (PF / La Crianza)",0],["Carnes y pescados","Salame Italiano PF Granel",0],["Carnes y pescados","Longaniza Ahumada Cecinas Chillán kg",0],["Carnes y pescados","Churrasco Posta Rosada Cuisine & Co 500 g",0],["Carnes y pescados","Trucha Filete Fresca Granel",0],["Carnes y pescados","Paté Llanquihue (Campo / Teewurst) 125 g",0],
+ ["Lácteos y huevos","Huevos Santa Marta Blanco 60 un.",3],["Lácteos y huevos","Huevos Coliumo Premium Grandes Blancos 30 un.",0],["Lácteos y huevos","Leche Surlat Entera 1 L",2],["Lácteos y huevos","Leche Surlat Descremada 1 L",0],["Lácteos y huevos","Leche Colun Entera / Descremada 1 L",0],["Lácteos y huevos","Yogurt Griego Quillayes Proteína Berries 110 g",1],["Lácteos y huevos","Yogurt Griego Quillayes Proteína Durazno 110 g",1],["Lácteos y huevos","Yogurt Griego Quillayes Proteína Trozos Frutilla 110 g",0],["Lácteos y huevos","Yogurt Griego Quillayes Proteína Natural 800 g",0],["Lácteos y huevos","Yogurt Natural Quillayes 800 g",0],["Lácteos y huevos","Yogurt Colun Origen Frutilla 120 g",0],["Lácteos y huevos","Mantequilla con Sal (Soprole / Colun / LP Valdivia)",0],["Lácteos y huevos","Crema de Leche Nestlé 157 g",0],
+ ["Quesos","Queso Mantecoso LP Valdivia Laminado Granel",1],["Quesos","Queso Mantecoso LP Valdivia Trozo Granel",0],["Quesos","Queso Mantecoso Quilque Laminado Granel",1],["Quesos","Queso Mantecoso Quilque Envasado 250 g",0],["Quesos","Queso Mantecoso Río Bueno Trozo Granel",0],["Quesos","Queso Chanco LP Valdivia 233 g",0],["Quesos","Queso Parmesano Cuisine & Co Rallado 80 g",0],
+ ["Panadería","Pan Molde Blanco 1 kg",0],["Panadería","Pan Molde Low Carb Clean Label 700 g",0],["Panadería","Pan Molde Castaño XL Sin Lactosa 770 g",0],["Panadería","Pan Hoja Granel",0],["Panadería","Pan Ciabatta Granel",0],["Panadería","Pan Ciabatta Mediterránea Granel",0],["Panadería","Baguetín Rústico Granel",0],["Panadería","Tortillas Burrera Tía Rosa 8 un.",0],["Panadería","Tarta de frutas artesanal",0],
+ ["Abarrotes","Pasta Talliani Al Huevo (Espirales / Spaghetti / Tallarín) 400 g",0],["Abarrotes","Arroz Grado 1 1 kg (Banquete Premium / Miraflores)",0],["Abarrotes","Aceite Maravilla Chef 1 L",0],["Abarrotes","Aceite de Oliva Huasco Extra Virgen 2 L",0],["Abarrotes","Salsa de Tomate Pomarola (Natural / Casera) 200 g",0],["Abarrotes","Mayonesa Hellmann's Supreme 380 g",0],["Abarrotes","Azúcar (Rubia Cuisine & Co 500 g / Blanca Iansa 1 kg)",0],["Abarrotes","Maní Tostado Sin Sal 700 g",0],["Abarrotes","Porotos Negros Wasil 230 g",0],["Abarrotes","Palmitos (Wasil rodajas / Cuisine & Co enteros)",0],["Abarrotes","Aceitunas Granel (Natural / Rellena Pimentón)",0],["Abarrotes","Pepinillos Kühne 300 g",0],["Abarrotes","Papas Fritas Marco Polo (Rústicas / Caseras)",0],
+ ["Congelados/Verd. prep.","Sofrito Minuto Verde con Ajo 150 g",0],["Congelados/Verd. prep.","Sofrito Frutos del Maipo 150 g",0],["Congelados/Verd. prep.","Choclo en Granos Frutos del Maipo 500 g",0],["Congelados/Verd. prep.","Choclo Congelado Minuto Verde 500 g",0],["Congelados/Verd. prep.","Poroto Verde Corte Francés Minuto Verde 350 g",0],["Congelados/Verd. prep.","Arvejas (Frutos del Maipo / Minuto Verde) 500 g",0],
+ ["Frutas y verduras","Ensalada Apio Bastones 500 g",0],["Frutas y verduras","Tomate Larga Vida malla 1 kg",0],["Frutas y verduras","Tomate Cóctel / Cherry",0],["Frutas y verduras","Champiñón Bandeja 200 g",0],["Frutas y verduras","Palta Hass",0],["Frutas y verduras","Piña",0],["Frutas y verduras","Plátano",0],["Frutas y verduras","Pimiento (Rojo / Amarillo)",0],
+ ["Galletas y snacks","Galletas Vino 160 g",1],["Galletas y snacks","Galletas Mini Choco Chips 35 g",0],["Galletas y snacks","Galletas Choco Chips 125 g",0],["Galletas y snacks","Galletas Mini Mantequilla 35 g",0],["Galletas y snacks","Galleta de Arroz Cuisine & Co Choco-Naranja",0],
+ ["Bebidas y aguas","Agua Mineral Cachantún con Gas 1,6 L",2],["Bebidas y aguas","Agua Saborizada Mas Sin Gas Manzana 1,6 L",2],["Bebidas y aguas","Agua Saborizada Mas Sin Gas Pera 1,6 L",2],["Bebidas y aguas","Agua Saborizada Mas Sin Gas Piña 1,6 L",0],["Bebidas y aguas","Vitamin Water 500 cc (Restore / Powerc / Energy)",0],["Bebidas y aguas","Coca-Cola Zero 1,5 L",0],["Bebidas y aguas","Pack Canada Dry Ginger Ale 350 ml",0],["Bebidas y aguas","Vino 750 cc (Carmenere / Sauvignon Blanc)",0],["Bebidas y aguas","Pack Cerveza Austral",0],
+ ["Infusiones","Té Negro (Supremo Premium / Ahmad English Breakfast)",0],["Infusiones","Té Ceylán Canela Supremo",0],
+ ["Aseo y hogar","Toalla de Papel Home Care Doble Hoja 100 m",0],["Aseo y hogar","Papel Higiénico Elite Ultra 18 un.",0],["Aseo y hogar","Servilletas Nova Clásica Cóctel 150 un.",0],["Aseo y hogar","Bolsa de Basura Home Care 50x70 10 un.",0],["Aseo y hogar","Lavaloza Fuzol Limón 1 L",0],["Aseo y hogar","Limpiador Crema Cif Original 500 ml",0],["Aseo y hogar","Gel Manual Pato Purific 500 ml",0],
+ ["Cuidado personal/bebé","Sabanillas con Tecnología Gel 6 un.",1],["Cuidado personal/bebé","Toallas Húmedas Emubaby 2x80",0],["Cuidado personal/bebé","Jabón Líquido (Ballerina / Babyland) 750 ml",0],["Cuidado personal/bebé","Shampoo (Simond's bebés / Dove)",0],
+ ["Ocasional","Útiles: Escarcha / Témpera Artel",0]
+];
+const STORE_KEY="compraPipeline.v1";
+const state={}; const stars=n=>"★".repeat(n);
+try{Object.assign(state,JSON.parse(localStorage.getItem(STORE_KEY)||"{}"))}catch(e){}
+function persist(){localStorage.setItem(STORE_KEY,JSON.stringify(state));render()}
+
+const listEl=document.getElementById("list"),catFilter=document.getElementById("catFilter");
+[...new Set(PRODUCTS.map(p=>p[0]))].forEach(c=>{const o=document.createElement("option");o.value=c;o.textContent=c;catFilter.appendChild(o)});
+
+function render(){
+  const q=document.getElementById("search").value.trim().toLowerCase();
+  const cf=catFilter.value,fav=document.getElementById("onlyFav").checked,sel=document.getElementById("onlySel").checked;
+  listEl.innerHTML="";let lastCat=null;
+  PRODUCTS.forEach((p,i)=>{
+    const [cat,name,fr]=p,id=String(i),st=state[id]||{};
+    if(cf&&cat!==cf)return; if(fav&&fr<1)return; if(sel&&!st.checked)return;
+    if(q&&!name.toLowerCase().includes(q)&&!cat.toLowerCase().includes(q))return;
+    if(cat!==lastCat){const h=document.createElement("div");h.className="cat";h.textContent=cat;listEl.appendChild(h);lastCat=cat}
+    const row=document.createElement("div");row.className="row"+(st.checked?" on":"");
+    row.innerHTML='<input class="cb" type="checkbox" '+(st.checked?"checked":"")+'>'+
+      '<label class="name">'+name+'</label>'+(fr>0?'<span class="stars">'+stars(fr)+'</span>':'')+
+      '<input class="qty" type="text" placeholder="cant." value="'+(st.qty?st.qty.replace(/"/g,'&quot;'):"")+'" '+(st.checked?"":"disabled")+'>';
+    const cb=row.querySelector(".cb"),qty=row.querySelector(".qty"),nm=row.querySelector(".name");
+    const toggle=()=>{state[id]=state[id]||{};state[id].checked=cb.checked;if(!cb.checked)delete state[id].qty;persist()};
+    cb.addEventListener("change",toggle);
+    nm.addEventListener("click",()=>{cb.checked=!cb.checked;toggle()});
+    qty.addEventListener("input",()=>{state[id]=state[id]||{checked:true};state[id].qty=qty.value;localStorage.setItem(STORE_KEY,JSON.stringify(state));count()});
+    listEl.appendChild(row);
+  });
+  count();
+}
+function selected(){return PRODUCTS.map((p,i)=>({p,st:state[String(i)]})).filter(x=>x.st&&x.st.checked)}
+function count(){document.getElementById("selCount").textContent=selected().length}
+["search","onlyFav","onlySel"].forEach(id=>document.getElementById(id).addEventListener("input",render));
+catFilter.addEventListener("change",render);
+document.getElementById("clearBtn").addEventListener("click",()=>{if(confirm("¿Borrar la selección?")){for(const k in state)delete state[k];persist()}});
+
+function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1800)}
+
+// ---------- Pipeline ----------
+const panel=document.getElementById("panel"),pTitle=document.getElementById("panelTitle"),pMsg=document.getElementById("panelMsg"),
+  pBody=document.getElementById("propBody"),approveBtn=document.getElementById("approveBtn"),editBtn=document.getElementById("editBtn"),closeBtn=document.getElementById("closeBtn");
+let pollTimer=null;
+function showPanel(){panel.classList.add("show")}
+function hidePanel(){panel.classList.remove("show");if(pollTimer)clearInterval(pollTimer)}
+closeBtn.onclick=hidePanel; editBtn.onclick=hidePanel;
+
+document.getElementById("sendBtn").addEventListener("click",async()=>{
+  const sel=selected(); if(!sel.length)return toast("Marca al menos un producto");
+  const d=new Date(),fecha=d.toISOString().slice(0,10);
+  const items=sel.map(x=>({producto:x.p[1],categoria:x.p[0],cantidad:(x.st.qty||"").trim()}));
+  pTitle.textContent="Enviando tu lista…"; pMsg.innerHTML='<span class="spinner"></span>Guardando '+items.length+' productos…';
+  pBody.style.display="none"; approveBtn.style.display="none"; editBtn.style.display="none"; showPanel();
+  try{
+    const r=await fetch("/api/seleccion",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({items,fecha})});
+    const j=await r.json(); if(!j.ok)throw new Error(j.error||"error");
+    pTitle.textContent="Procesando tu lista…";
+    pMsg.innerHTML='<span class="spinner"></span>Claude está comparando precios en <b>Jumbo</b> y <b>Líder</b>. Esto toma 1–3 min…';
+    startPolling();
+  }catch(e){pMsg.textContent="No se pudo enviar: "+e.message;}
+});
+
+function startPolling(){
+  if(pollTimer)clearInterval(pollTimer);
+  pollTimer=setInterval(async()=>{
+    try{
+      const r=await fetch("/api/propuesta"); const j=await r.json();
+      if(j.status==="propuesta"&&j.propuesta){
+        clearInterval(pollTimer);
+        pTitle.textContent="📝 Propuesta de compra";
+        pMsg.textContent=j.propuesta.resumen||"";
+        pBody.style.display="block"; pBody.innerHTML=j.propuesta.html||"<p>(sin detalle)</p>";
+        approveBtn.style.display="inline-block"; editBtn.style.display="inline-block";
+      }else if(j.status==="aprobado"){
+        pTitle.textContent="🛒 Armando tus canastos…";
+        pMsg.innerHTML='<span class="spinner"></span>Claude está agregando los productos a tu carrito en Jumbo y Líder. Quedarán listos para que pagues.';
+      }
+    }catch(e){}
+  },5000);
+}
+
+approveBtn.addEventListener("click",async()=>{
+  approveBtn.disabled=true;
+  try{
+    const r=await fetch("/api/aprobar",{method:"POST"}); const j=await r.json();
+    if(!j.ok)throw new Error(j.error||"error");
+    pTitle.textContent="🛒 Armando tus canastos…";
+    pMsg.innerHTML='<span class="spinner"></span>Listo, aprobado. Claude está armando los carritos en tu Chrome. Te avisará cuando estén listos para pagar.';
+    pBody.style.display="none"; approveBtn.style.display="none"; editBtn.style.display="none";
+    startPolling();
+  }catch(e){pMsg.textContent="No se pudo aprobar: "+e.message; approveBtn.disabled=false;}
+});
+
+render();
+</script>
+</body>
+</html>

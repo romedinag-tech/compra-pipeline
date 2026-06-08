@@ -1,0 +1,9 @@
+{
+  "name": "compra-pipeline",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pipeline de compra: marcar productos -> Claude compara Jumbo/Lider -> propuesta -> canastos",
+  "dependencies": {
+    "@vercel/kv": "^1.0.1"
+  }
+}
