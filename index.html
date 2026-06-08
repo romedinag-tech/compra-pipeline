@@ -55,6 +55,7 @@
     <select id="catFilter"><option value="">Todas las categorías</option></select>
     <label class="toggle"><input type="checkbox" id="onlyFav"> Solo ★</label>
     <label class="toggle"><input type="checkbox" id="onlySel"> Solo marcados</label>
+    <button class="toggle" id="histBtn" style="cursor:pointer;border:none">📈 Historial</button>
   </div>
 </header>
 
@@ -79,6 +80,17 @@
   </div>
 </div></div>
 <div class="toast" id="toast"></div>
+
+<div id="histPanel" style="position:fixed;inset:0;background:rgba(20,30,25,.55);z-index:40;display:none;align-items:flex-start;justify-content:center;padding:24px 12px;overflow:auto">
+  <div class="sheet" style="max-width:920px">
+    <h2 style="margin:0 0 6px;color:var(--green-d)">📈 Historial de precios</h2>
+    <div class="state-msg" id="histMsg" style="font-size:13px;color:var(--muted);margin:6px 0 12px">Cada análisis queda registrado con fecha para ver tendencias. J = Jumbo · L = Líder.</div>
+    <div id="histBody" style="overflow:auto;max-height:60vh;border:1px solid var(--line);border-radius:10px"></div>
+    <div class="sheet-actions" style="display:flex;gap:10px;margin-top:14px">
+      <button class="btn ghost" id="histClose">Cerrar</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const PRODUCTS = [
@@ -186,6 +198,37 @@ approveBtn.addEventListener("click",async()=>{
     pBody.style.display="none"; approveBtn.style.display="none"; editBtn.style.display="none";
     startPolling();
   }catch(e){pMsg.textContent="No se pudo aprobar: "+e.message; approveBtn.disabled=false;}
+});
+
+// ---------- Historial / tendencias ----------
+const histPanel=document.getElementById("histPanel"),histBody=document.getElementById("histBody"),histMsg=document.getElementById("histMsg");
+document.getElementById("histClose").onclick=()=>histPanel.style.display="none";
+function fmt(n){return (n==null||n==="")?"—":"$"+Number(n).toLocaleString("es-CL")}
+document.getElementById("histBtn").addEventListener("click",async()=>{
+  histPanel.style.display="flex"; histBody.innerHTML='<div style="padding:16px">Cargando…</div>';
+  try{
+    const r=await fetch("/api/historial"); const j=await r.json();
+    const h=(j.historial||[]);
+    if(!h.length){ histBody.innerHTML='<div style="padding:16px;color:#6b7771">Aún no hay análisis registrados. Cuando hagamos la primera comparación, quedará aquí con su fecha.</div>'; return; }
+    const fechas=h.map(r=>r.fecha);
+    // productos en orden de aparición
+    const prods=[]; const seen=new Set();
+    h.forEach(r=>(r.precios||[]).forEach(p=>{ if(!seen.has(p.producto)){seen.add(p.producto);prods.push(p.producto);} }));
+    // index: producto+fecha -> {jumbo,lider}
+    const map={}; h.forEach(r=>(r.precios||[]).forEach(p=>{ map[p.producto+"@@"+r.fecha]={j:p.jumbo,l:p.lider}; }));
+    let html='<table style="border-collapse:collapse;width:100%;font-size:12.5px"><thead><tr>'+
+      '<th style="position:sticky;left:0;background:#1f7a3d;color:#fff;padding:7px 9px;text-align:left">Producto</th>'+
+      fechas.map(f=>'<th style="background:#1f7a3d;color:#fff;padding:7px 9px;white-space:nowrap">'+f+'</th>').join('')+'</tr></thead><tbody>';
+    prods.forEach((prod,ri)=>{
+      const bg=ri%2?'#f4f6f5':'#fff';
+      html+='<tr><td style="position:sticky;left:0;background:'+bg+';padding:6px 9px;border-top:1px solid #e3e8e5;font-weight:600">'+prod+'</td>';
+      fechas.forEach(f=>{ const c=map[prod+"@@"+f]; html+='<td style="background:'+bg+';padding:6px 9px;border-top:1px solid #e3e8e5;white-space:nowrap;text-align:center">'+(c?('<span style="color:#1f7a3d">J '+fmt(c.j)+'</span><br><span style="color:#1565c0">L '+fmt(c.l)+'</span>'):'—')+'</td>'; });
+      html+='</tr>';
+    });
+    html+='</tbody></table>';
+    histBody.innerHTML=html;
+    histMsg.textContent=h.length+" análisis registrado(s). J = Jumbo · L = Líder. Las columnas son fechas — mira de izquierda a derecha para ver la tendencia.";
+  }catch(e){ histBody.innerHTML='<div style="padding:16px;color:#b00">No se pudo cargar el historial.</div>'; }
 });
 
 render();
