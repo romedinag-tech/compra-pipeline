@@ -4,6 +4,6 @@
   "private": true,
   "description": "Pipeline de compra: marcar productos -> Claude compara Jumbo/Lider -> propuesta -> canastos",
   "dependencies": {
-    "@upstash/redis": "^1.34.3"
+    "@vercel/blob": "^0.27.0"
   }
 }
