@@ -17,7 +17,12 @@
   .toggle{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.18);padding:8px 11px;border-radius:10px;font-size:13px;cursor:pointer;user-select:none}
   main{max-width:880px;margin:0 auto;padding:14px 12px 150px}
   .cat{margin:18px 0 8px;font-size:13px;font-weight:700;color:var(--green-d);text-transform:uppercase;letter-spacing:.5px}
-  .row{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:7px}
+  .row{display:flex;flex-wrap:wrap;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:7px}
+  .prices{flex-basis:100%;display:flex;gap:6px;overflow-x:auto;padding:4px 0 2px 34px;margin-top:2px}
+  .pchip{flex:0 0 auto;border:1px solid var(--line);border-radius:8px;padding:3px 8px;font-size:11px;line-height:1.35;background:#fafbfa;white-space:nowrap;text-align:center}
+  .pchip b{display:block;color:var(--muted);font-weight:600;font-size:10px}
+  .pchip .pj{color:#1f7a3d;font-weight:600}
+  .pchip .pl{color:#0a4f9e;font-weight:600}
   .row.on{background:#f0f9f2;border-color:var(--green)}
   .row label.name{flex:1;font-size:14.5px;cursor:pointer;line-height:1.25}
   .row .stars{color:var(--accent);font-size:12px;white-space:nowrap}
@@ -110,6 +115,12 @@ const PRODUCTS = [
 ];
 const STORE_KEY="compraPipeline.v1";
 const state={}; const stars=n=>"★".repeat(n);
+// --- precios por producto (desde historial) ---
+let PRICEMAP={}, PRICEDATES=[];
+function normP(s){return (s||"").toLowerCase().normalize("NFD").replace(/[^a-z0-9]/g,"");}
+function fmtP(n){return (n==null||n==="")?"—":"$"+Number(n).toLocaleString("es-CL");}
+function buildPriceIndex(hist){PRICEMAP={};const ds=new Set();(hist||[]).forEach(r=>{ds.add(r.fecha);(r.precios||[]).forEach(p=>{const k=normP(p.producto);(PRICEMAP[k]=PRICEMAP[k]||{})[r.fecha]={j:p.jumbo,l:p.lider};});});PRICEDATES=[...ds].sort();}
+function priceChips(name){const m=PRICEMAP[normP(name)];if(!m)return "";const ds=PRICEDATES.slice(-5);let h="";ds.forEach(d=>{const c=m[d];if(!c)return;h+='<span class="pchip"><b>'+d.slice(5)+'</b><span class="pj">J '+fmtP(c.j)+'</span> <span class="pl">L '+fmtP(c.l)+'</span></span>';});return h?'<div class="prices">'+h+'</div>':"";}
 try{Object.assign(state,JSON.parse(localStorage.getItem(STORE_KEY)||"{}"))}catch(e){}
 function persist(){localStorage.setItem(STORE_KEY,JSON.stringify(state));render()}
 
@@ -128,7 +139,8 @@ function render(){
     const row=document.createElement("div");row.className="row"+(st.checked?" on":"");
     row.innerHTML='<input class="cb" type="checkbox" '+(st.checked?"checked":"")+'>'+
       '<label class="name">'+name+'</label>'+(fr>0?'<span class="stars">'+stars(fr)+'</span>':'')+
-      '<input class="qty" type="text" placeholder="cant." value="'+(st.qty?st.qty.replace(/"/g,'&quot;'):"")+'" '+(st.checked?"":"disabled")+'>';
+      '<input class="qty" type="text" placeholder="cant." value="'+(st.qty?st.qty.replace(/"/g,'&quot;'):"")+'" '+(st.checked?"":"disabled")+'>'+
+      priceChips(name);
     const cb=row.querySelector(".cb"),qty=row.querySelector(".qty"),nm=row.querySelector(".name");
     const toggle=()=>{state[id]=state[id]||{};state[id].checked=cb.checked;if(!cb.checked)delete state[id].qty;persist()};
     cb.addEventListener("change",toggle);
@@ -232,6 +244,7 @@ document.getElementById("histBtn").addEventListener("click",async()=>{
 });
 
 render();
+fetch("/api/historial").then(r=>r.json()).then(j=>{buildPriceIndex(j.historial||[]);render();}).catch(()=>{});
 </script>
 </body>
 </html>
